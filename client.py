@@ -29,6 +29,16 @@ def grant_access(client, account, endpoint):
     client.put(authorisation)
     return authorisation.key
 
+def grant_all_access(client, account, endpoints):
+    for endpoint in endpoints:
+        grant_access(client, account, get_endpoint_key(endpoint))
+
+def remove_all_access(client, account):
+    query = client.query(kind='Authorisation')
+    query.add_filter('account', '=', account.key)
+    for access in query.fetch():
+        client.delete(access.key)
+
 def list_accesses(client):
     query = client.query(kind='Account')
     for account in query.fetch():
