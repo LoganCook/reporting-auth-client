@@ -76,4 +76,9 @@ if __name__ == '__main__':
     # get projects list from gcloud
     # bin/gcloud projects list
     client = datastore.Client('ersa-reporting-auth')
+
+    endpoints = ('bman', 'hcp', 'hnas', 'hpc', 'nova', 'slurm', 'vms', 'xfs')
+    print("Supported endpoints are:")
+    print(*endpoints)
+
     list_accesses(client)
