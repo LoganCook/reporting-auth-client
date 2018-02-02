@@ -1,29 +1,11 @@
 import os
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./auth_client-edd7b690c2e5.json"
-# get projects list from gcloud
-# bin/gcloud projects list
-
+import sys
 import datetime
+
 from google.cloud import datastore
-client = datastore.Client('ersa-reporting-auth')
-
-query = client.query(kind='Endpoint')
-list(query.fetch())
-
-
-query = client.query(kind='Account', projection=('name',))
-accounts = list(query.fetch())
-for account in accounts:
-    print(account['name'], account.key)
-
-karl.key
-ent_karl = client.get(karl.key)
-
-
-account_query = client.query(kind='Account', projection=('email', 'timestamp'))
-account_query.add_filter('name', '=', 'Karl Sellmann')
 
 def get_keyof(client, kind, key_filter):
+    # if not find, there will be IndexError: list index out of range
     query = client.query(kind=kind)
     query.add_filter(*key_filter)
     query.keys_only()
@@ -74,5 +56,14 @@ def batch_grant(client, endpoint_name):
     query = client.query(kind='Account')
     for account in query.fetch():
         if not verify_access(client, account, endpoint):
-            print("Granting access to %s on %s" % (account['name'], endpoint))
+            print("Granting access to %s on %s" % (account['name'], endpoint_name))
             grant_access(client, account, endpoint)
+
+if __name__ == '__main__':
+    if 'GOOGLE_APPLICATION_CREDENTIALS' not in os.environ:
+        sys.exit('Please set env variable GOOGLE_APPLICATION_CREDENTIALS to your JSON file')
+
+    # get projects list from gcloud
+    # bin/gcloud projects list
+    client = datastore.Client('ersa-reporting-auth')
+    list_accesses(client)
