@@ -1,6 +1,8 @@
 import os
 import sys
 import datetime
+import json
+import argparse
 
 from google.cloud import datastore
 
@@ -47,10 +49,15 @@ def list_accesses(client):
 def get_accessess(client, account):
     query = client.query(kind='Authorisation')
     query.add_filter('account', '=', account.key)
-    print("%s has access to:" % account['name'])
+    print("%s (%s) has access to:" % (account['name'], account['email']))
+    empty = True
     for access in query.fetch():
+        empty = False
         endpoint = client.get(access['endpoint'])
         print(endpoint['name'])
+    if empty:
+        print("<None>")
+    print()
 
 def verify_access(client, account, endpoint):
     """Verify if an Account has access of an Endpoint"""
@@ -69,16 +76,48 @@ def batch_grant(client, endpoint_name):
             print("Granting access to %s on %s" % (account['name'], endpoint_name))
             grant_access(client, account, endpoint)
 
+def get_endpoints(client):
+    endpoints = []
+    query = client.query(kind='Endpoint')
+    for endpoint in query.fetch():
+        endpoints.append(endpoint['name'])
+    return endpoints
+
+
+
 if __name__ == '__main__':
+
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Help administrate the reporting whitelist for users. Note that the Datastore can be manually edited on Google Cloud Platform.')
+    parser.add_argument('--list', help='List all user accesses', action='store_true')
+    parser.add_argument('--grant-user-all', help='Grant access to all API endpoints for a user', type=str, metavar="EMAIL")
+    args = parser.parse_args()
+
     if 'GOOGLE_APPLICATION_CREDENTIALS' not in os.environ:
         sys.exit('Please set env variable GOOGLE_APPLICATION_CREDENTIALS to your JSON file')
 
+    # Parse credentials file to get project ID
+    with open(os.environ['GOOGLE_APPLICATION_CREDENTIALS']) as file:
+        data = json.load(file)
+    project_id = data['project_id']
+    print("Connecting to '%s'...\n" % project_id)
+
     # get projects list from gcloud
     # bin/gcloud projects list
-    client = datastore.Client('ersa-reporting-auth')
+    client = datastore.Client(project_id)
 
-    endpoints = ('bman', 'hcp', 'hnas', 'hpc', 'nova', 'slurm', 'vms', 'xfs')
+    endpoints = get_endpoints(client)
     print("Supported endpoints are:")
-    print(*endpoints)
+    print("\n".join(endpoints), "\n")
 
-    list_accesses(client)
+    if args.grant_user_all is not None:
+        email = args.grant_user_all
+        person = get_account_key(client, email)
+        print("Found their key:\n%s\n\nAdding access..." % person.key)
+        grant_all_accesses(client, person, endpoints)
+        for endpoint in endpoints:
+            print("%s is accessible = %s" % (endpoint, verify_access(client, person, get_endpoint_key(client, endpoint))))
+
+    if args.list:
+        print("Listing all user accesses...\n")
+        list_accesses(client)
